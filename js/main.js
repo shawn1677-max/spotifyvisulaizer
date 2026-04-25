@@ -66,6 +66,12 @@ class App {
     });
 
     document.getElementById('btn-login').addEventListener('click', () => beginLogin().catch(e => showToast('Login failed: ' + e.message)));
+    document.getElementById('btn-login-reset').addEventListener('click', (e) => {
+      e.preventDefault();
+      clearClientId();
+      logout();
+      location.reload();
+    });
 
     if (!getClientId()) {
       $setup.classList.remove('hidden');
