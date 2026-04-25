@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <title>Aurora — Spotify Visualizer</title>
+  <link rel="stylesheet" href="./css/styles.css" />
+  <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%231db954'/></svg>" />
+</head>
+<body>
+  <canvas id="stage" aria-label="visualizer canvas"></canvas>
+
+  <!-- Top now-playing overlay -->
+  <header id="now" class="now hidden" aria-live="polite">
+    <img id="np-cover" alt="" />
+    <div class="np-meta">
+      <div id="np-title">—</div>
+      <div id="np-artist">—</div>
+    </div>
+    <div class="np-controls">
+      <button id="btn-prev" title="Previous (←)">⏮</button>
+      <button id="btn-play" title="Play/Pause (Space)">⏯</button>
+      <button id="btn-next" title="Next (→)">⏭</button>
+    </div>
+  </header>
+
+  <!-- Settings drawer -->
+  <aside id="drawer" class="drawer hidden" aria-label="settings">
+    <div class="drawer-head">
+      <h2>Aurora</h2>
+      <button id="drawer-close" aria-label="close">×</button>
+    </div>
+
+    <section>
+      <h3>Visualizer</h3>
+      <div id="viz-grid" class="viz-grid"></div>
+    </section>
+
+    <section>
+      <h3>Look</h3>
+      <label>Palette
+        <select id="opt-palette">
+          <option value="auto">Auto (album art)</option>
+          <option value="neon">Neon</option>
+          <option value="sunset">Sunset</option>
+          <option value="aqua">Aqua</option>
+          <option value="mono">Mono</option>
+          <option value="forest">Forest</option>
+          <option value="ember">Ember</option>
+        </select>
+      </label>
+      <label>Background
+        <select id="opt-bg">
+          <option value="black">Black</option>
+          <option value="palette">Palette dark</option>
+          <option value="cover">Blurred cover</option>
+        </select>
+      </label>
+    </section>
+
+    <section>
+      <h3>Reactivity</h3>
+      <label>Bass <input type="range" id="opt-bass" min="0" max="2" step="0.01" value="1" /></label>
+      <label>Mid <input type="range" id="opt-mid" min="0" max="2" step="0.01" value="1" /></label>
+      <label>Treble <input type="range" id="opt-treble" min="0" max="2" step="0.01" value="1" /></label>
+      <label>Smoothing <input type="range" id="opt-smooth" min="0" max="0.95" step="0.01" value="0.6" /></label>
+      <label>Beat punch <input type="range" id="opt-punch" min="0" max="2" step="0.01" value="1" /></label>
+    </section>
+
+    <section>
+      <h3>Post FX</h3>
+      <label><input type="checkbox" id="fx-bloom" checked /> Bloom</label>
+      <label>Bloom amount <input type="range" id="fx-bloom-amt" min="0" max="2" step="0.01" value="0.8" /></label>
+      <label><input type="checkbox" id="fx-chroma" /> Chromatic aberration</label>
+      <label><input type="checkbox" id="fx-grain" /> Film grain</label>
+      <label><input type="checkbox" id="fx-trails" /> Motion trails</label>
+      <label>Trail strength <input type="range" id="fx-trails-amt" min="0" max="0.99" step="0.01" value="0.85" /></label>
+    </section>
+
+    <section>
+      <h3>Audio source</h3>
+      <label>
+        <select id="opt-source">
+          <option value="analysis">Spotify Audio Analysis (recommended)</option>
+          <option value="mic">Mic / system audio (BlackHole)</option>
+        </select>
+      </label>
+      <p class="hint">Spotify's Web Playback audio is DRM-encrypted and cannot be tapped for FFT. The analysis stream gives beats, bars, sections, pitches and timbre. For real FFT, route system audio into a virtual mic (BlackHole) and pick "Mic".</p>
+    </section>
+
+    <section>
+      <h3>Presets</h3>
+      <div class="row">
+        <input id="preset-name" placeholder="preset name" />
+        <button id="preset-save">Save</button>
+      </div>
+      <select id="preset-list" size="5"></select>
+      <div class="row">
+        <button id="preset-load">Load</button>
+        <button id="preset-delete">Delete</button>
+      </div>
+    </section>
+
+    <section>
+      <h3>Account</h3>
+      <button id="btn-logout">Sign out of Spotify</button>
+      <button id="btn-reset-clientid">Change Client ID</button>
+    </section>
+
+    <section class="footer">
+      <p>Hotkeys: <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> track · <kbd>V</kbd> next viz · <kbd>F</kbd> fullscreen · <kbd>S</kbd> settings · <kbd>H</kbd> hide UI</p>
+    </section>
+  </aside>
+
+  <!-- Setup screen: collect Spotify Client ID once -->
+  <div id="setup" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h1>One-time setup</h1>
+      <p>Aurora is a static page — there is no shared backend. Spotify requires every user to register their own free developer app. Takes about 90 seconds.</p>
+      <ol>
+        <li>Go to <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a> and log in.</li>
+        <li>Click <strong>Create app</strong>. Name it anything (e.g. "Aurora"). Description: anything.</li>
+        <li>For <strong>Redirect URI</strong>, paste exactly: <code id="redirect-display"></code> <button id="copy-redirect" class="mini">copy</button></li>
+        <li>Under <em>APIs used</em>, tick <strong>Web API</strong> and <strong>Web Playback SDK</strong>. Save.</li>
+        <li>Open the app's <strong>Settings</strong>, copy the <strong>Client ID</strong>, paste below.</li>
+      </ol>
+      <label>Client ID
+        <input type="text" id="setup-clientid" autocomplete="off" spellcheck="false" placeholder="e.g. 1a2b3c4d5e6f..." />
+      </label>
+      <button id="setup-save" class="primary">Save & continue</button>
+    </div>
+  </div>
+
+  <!-- Login screen -->
+  <div id="login" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h1>Aurora</h1>
+      <p>A music visualizer for Spotify Premium. Sign in to begin.</p>
+      <button id="btn-login" class="primary">Sign in with Spotify</button>
+      <p class="hint">Premium is required by Spotify for the Web Playback SDK. No account data leaves your browser.</p>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- UI hint button (bottom-right) -->
+  <button id="btn-settings" class="fab" title="Settings (S)">⚙</button>
+
+  <script src="https://sdk.scdn.co/spotify-player.js"></script>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

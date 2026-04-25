@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Aurora — signing in…</title>
+  <style>
+    html,body{height:100%;margin:0;background:#000;color:#eee;font:14px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",Helvetica,Arial,sans-serif;display:grid;place-items:center}
+    .wrap{text-align:center}
+    .spinner{width:32px;height:32px;border:3px solid #333;border-top-color:#1db954;border-radius:50%;animation:s 0.8s linear infinite;margin:0 auto 12px}
+    @keyframes s{to{transform:rotate(360deg)}}
+    a{color:#1db954}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="spinner" id="sp"></div>
+    <div id="msg">Completing sign-in…</div>
+    <p><a href="../index.html" id="back" hidden>← back</a></p>
+  </div>
+  <script type="module">
+    import { handleRedirect } from '../js/auth.js';
+    try {
+      await handleRedirect();
+      // success — bounce to app root
+      const target = sessionStorage.getItem('aurora.returnTo') || '../index.html';
+      sessionStorage.removeItem('aurora.returnTo');
+      location.replace(target);
+    } catch (e) {
+      document.getElementById('sp').style.display = 'none';
+      document.getElementById('msg').textContent = 'Sign-in failed: ' + (e?.message || e);
+      document.getElementById('back').hidden = false;
+    }
+  </script>
+</body>
+</html>
